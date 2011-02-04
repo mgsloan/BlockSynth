@@ -193,81 +193,44 @@ int main(int argc, char **argv)
     Mat prev;
     int prevSet = false;
 
-
-    Mat spectrum(1, 300, CV_32F);
     while (!die) {
  
         Mat depthf = depthMat.clone();
-//        Mat depthf;
-//        depthMat.convertTo(depthf, CV_8UC1, 255.0/2048.0);
 
         int xp = 200;
         line(rgbMat, Point(xp, 30), Point(xp, 330), Scalar(0,0,255));
 
-        if (prevSet) {
-//            prev -= 10;
-//            Mat diff = depthf - prev, gt;
-//            compare(diff,  20, gt, CMP_GT);
-//            diff.setTo(0, gt);
-//            diff *= 12;
-//            imshow("diff", diff);
-/*
-            for (int i = 30; i < 330; i++) {
-                char val1 = depthf.at<char>(i - 30, xp);
-                char prev = 0;
-                spectrum.at<float>(0,i-30)  = 0;
-                if (val1 < 120 & val1 > 0) {
-                    printf("%i\n", val1);
-                    line(rgbMat, Point(xp, i), Point(xp + val1, i), Scalar(255,0,0));
-//                    if (prev == 0)
-                    spectrum.at<float>(0,i-30) = (val1 - 40) * 5;
-                    prev = val1;
-                } else prev = 0;
+        Mat spect(1, 3000, CV_32F), result;
+        for (int i = 0; i < 3000; i++) spect.at<float>(0, i) = 0;
+
+        extractSpectrum(depthf, spect,
+            xp, 30, 330,        // line
+            0, 1000,            // frequency
+            24379763, 60000000, // distance
+            0, 50);            // amplitude
+
+        extractSpectrum(depthf, spect,
+            xp + 5, 30, 330,        // line
+            100, 1100,            // frequency
+            24379763, 60000000, // distance
+            0, 50);            // amplitude
+
+        extractSpectrum(depthf, spect,
+            xp + 10, 30, 330,        // line
+            200, 1200,            // frequency
+            24379763, 60000000, // distance
+            0, 50);            // amplitude
+
+        dft(spect, result, DFT_INVERSE);
+        float prev = 0;
+        for (int i = 0; i < result.size().width; i++) {
+            float i2 = (float)i / 1732.0;
+            float val = result.at<float>(0,i) * i2 * i2;
+            if (i % 10 == 0) { 
+                line(rgbMat, Point((i/10)-1, prev + 100), Point(i/10, val + 100), Scalar(0,255,0));
             }
- */
-
- //           Mat gt;
-//            compare(depthf, 24379763, 
-            printf("%i %i \n", depthf.size().width, depthf.size().height);
-            Mat spect(1, 3000, CV_32F), result;
-            for (int i = 0; i < 3000; i++) spect.at<float>(0, i) = 0;
-            extractSpectrum(depthf, spect,
-                xp, 30, 330,        // line
-                0, 1000,            // frequency
-                24379763, 60000000, // distance
-                0, 50);            // amplitude
-
-            extractSpectrum(depthf, spect,
-                xp + 5, 30, 330,        // line
-                100, 1100,            // frequency
-                24379763, 60000000, // distance
-                0, 50);            // amplitude
-
-            extractSpectrum(depthf, spect,
-                xp + 10, 30, 330,        // line
-                200, 1200,            // frequency
-                24379763, 60000000, // distance
-                0, 50);            // amplitude
-
-            //resize(spectrum, spect, Size(3000,1));
-  //          int fromSz = spectrum.size().width, toSz = spect.size().width;
-  //          float ratio = (float)toSz / fromSz;
-  //          printf("%i %i %f\n", fromSz, toSz, ratio);
-  //          for(int i = 0; i < fromSz; i++) {
-  //              spect.at<float>(0, (int)(i * ratio)) = spectrum.at<float>(0, i);
-  //          }
-            dft(spect, result, DFT_INVERSE);
-            float prev = 0;
-            for (int i = 0; i < result.size().width; i++) {
-                float i2 = (float)i / 1732.0;
-                float val = result.at<float>(0,i) * i2 * i2;
-            //    printf("%i %f\n", i, result.at<float>(0,i));
-                if (i % 10 == 0) { 
-                    line(rgbMat, Point((i/10)-1, prev + 100), Point(i/10, val + 100), Scalar(0,255,0));
-                }
-                sound.at<short>(0,i) = (short)(val + 16000);
-                prev = val;
-            }
+            sound.at<short>(0,i) = (short)(val + 16000);
+            prev = val;
         }
 
         prev = depthf.clone();

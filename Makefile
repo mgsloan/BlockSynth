@@ -12,4 +12,7 @@ clean:
 
 spectrum: spectrum.cpp 
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+<<<<<<< HEAD
 
+=======
+>>>>>>> ce3b25f728b0b514c0669dfb8c800c60c0154cb5

@@ -195,10 +195,38 @@ int main(int argc, char **argv)
 
     while (!die) {
  
-        Mat depthf = depthMat.clone();
+        Mat rgb = rgbMat.clone(), depthf;
+        depthMat.convertTo(depthf, CV_8UC1, 255.0/2048.0);
+
+        int histSize[] = {256};
+        float hranges[] = { 0, 256.0 };
+        const float* ranges[] = { hranges };
+        MatND hist;
+        int channels[] = {0};
+
+        // Calculate depth histogram in order to make assumptions regarding
+        // background clip depth.
+        calcHist( &depthf, 1, channels, Mat(), // do not use mask
+                 hist, 1, histSize, ranges,
+                 true, // the histogram is uniform
+                 false );
+        double histMax=0;
+        int histIx;
+        minMaxLoc(hist, 0, &histMax, 0, &histIx);
+
+        // draw histogram
+        rectangle(rgb, Point(0, 0), Point(256, 100), Scalar::all(0),
+        CV_FILLED);
+        if(histMax > 0) {
+          for( int h = 0; h < 256; h++ ) {
+              double val = hist.at<float>(h);
+              rectangle(rgb, Point(h, 0), Point((h+1), val * 100 /
+                  histMax), Scalar::all(255), CV_FILLED);
+          }
+        }
 
         int xp = 200;
-        line(rgbMat, Point(xp, 30), Point(xp, 330), Scalar(0,0,255));
+        line(rgb, Point(xp, 30), Point(xp, 330), Scalar(0,0,255));
 
         Mat spect(1, 3000, CV_32F), result;
         for (int i = 0; i < 3000; i++) spect.at<float>(0, i) = 0;
@@ -209,36 +237,20 @@ int main(int argc, char **argv)
             24379763, 60000000, // distance
             0, 50);            // amplitude
 
-        extractSpectrum(depthf, spect,
-            xp + 5, 30, 330,        // line
-            100, 1100,            // frequency
-            24379763, 60000000, // distance
-            0, 50);            // amplitude
-
-        extractSpectrum(depthf, spect,
-            xp + 10, 30, 330,        // line
-            200, 1200,            // frequency
-            24379763, 60000000, // distance
-            0, 50);            // amplitude
-
         dft(spect, result, DFT_INVERSE);
         float prev = 0;
         for (int i = 0; i < result.size().width; i++) {
             float i2 = (float)i / 1732.0;
             float val = result.at<float>(0,i) * i2 * i2;
             if (i % 10 == 0) { 
-                line(rgbMat, Point((i/10)-1, prev + 100), Point(i/10, val + 100), Scalar(0,255,0));
+                line(rgb, Point((i/10)-1, prev + 100), Point(i/10, val + 100), Scalar(0,255,0));
             }
             sound.at<short>(0,i) = (short)(val + 16000);
             prev = val;
         }
 
-        prev = depthf.clone();
-        prevSet = true;
-
-        imshow("rgb", rgbMat);
+        imshow("rgb", rgb);
         imshow("depth", depthf);
-
 
         char k = cvWaitKey(5);
         if( k == 27 ) break;

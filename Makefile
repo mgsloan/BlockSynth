@@ -1,4 +1,4 @@
-all: spectrum
+all: spectrum nearest
 
 CC=g++
 CFLAGS=-Wall -g `pkg-config opencv --cflags --libs`
@@ -12,7 +12,6 @@ clean:
 
 spectrum: spectrum.cpp 
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
-<<<<<<< HEAD
 
-=======
->>>>>>> ce3b25f728b0b514c0669dfb8c800c60c0154cb5
+nearest: nearest.cpp 
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<

@@ -1,100 +1,4 @@
-#include <cv.h>
-#include <highgui.h>
-#include <cvaux.h>
-
-#include <cmath>
-#include <iostream>
-#include <stdio.h>
-#include <limits>
-#include <string.h>
-
-#include <libusb.h>
-#include "libfreenect.h"
-
-#include <ao/ao.h>
-
-#include <pthread.h>
-
-using namespace cv;
-using namespace std;
-
-Mat depthMat(Size(640,480),CV_16UC1),
-    rgbMat(Size(640,480),CV_8UC3,Scalar(0));
-pthread_t fnkt_thread;
-pthread_t ao_thread;
-freenect_device *f_dev;
-pthread_mutex_t buf_mutex = PTHREAD_MUTEX_INITIALIZER;
-freenect_context *f_ctx;
-pthread_cond_t frame_cond = PTHREAD_COND_INITIALIZER;
- 
-int got_frames = 0;
-bool die = false;
-
-// Callback to handle 11-bit depth buffer, marshalling them as openCV Mat
-void depth_cb(freenect_device *dev, void*depth, uint32_t timestamp)
-{
-    pthread_mutex_lock(&buf_mutex);
- 
-    //copy to ocv buf...
-    memcpy(depthMat.data, depth, FREENECT_DEPTH_11BIT_SIZE);
- 
-    got_frames++;
-    pthread_cond_signal(&frame_cond);
-    pthread_mutex_unlock(&buf_mutex);
-}
- 
-// Callback to handle rgb frames, marshalling them as openCV Mat.
-void rgb_cb(freenect_device *dev, void*rgb, uint32_t timestamp)
-{
-    pthread_mutex_lock(&buf_mutex);
-    got_frames++;
-    //copy to ocv_buf..
-    memcpy(rgbMat.data, rgb, FREENECT_VIDEO_RGB_SIZE);
- 
-    pthread_cond_signal(&frame_cond);
-    pthread_mutex_unlock(&buf_mutex);
-}
-
-
-// Thread to loop and query the kinect data as fast as possible.
-void *freenect_threadfunc(void* arg) {
-    cout << "freenect thread"<<endl;
-    while(!die && freenect_process_events(f_ctx) >= 0 ) {}
-    cout << "freenect die"<<endl;
-    return NULL;
-}
-
-
-// Globar parameters for libao thread.
-
-ao_device *ao_dev;
-ao_sample_format ao_format;
-int ao_default_driver;
-char *ao_buffer;
-int ao_buf_size;
-int ao_sample;
-int ao_cnt;
-Mat sound(1, 3000, CV_16UC1);
-
-// Libao thread which mixes two sine waves.
-void *libao_threadfunc(void* arg) {
-
-    while (!die) {
-      for (int i = 0; i < ao_cnt ; i++) {
-
-
-                int ix = i;// + j;
-                ao_buffer[4*ix] = ao_buffer[4*ix+2] =
-                sound.at<short>(0, i) & 0xff;
-                ao_buffer[4*ix+1] = ao_buffer[4*ix+3] = 
-                  (sound.at<short>(0, i) >> 8) & 0xff;
-            //}
-        }
-        ao_play(ao_dev, ao_buffer, ao_buf_size);
-    }
-
-    return NULL;
-}
+#include "audio.h"
 
 void extractSpectrum(Mat img, Mat spect,// bool drawIt,
   int x, int fy, int ty,    // line in camera space, maps to
@@ -117,8 +21,9 @@ void extractSpectrum(Mat img, Mat spect,// bool drawIt,
 
 int main(int argc, char **argv)
 {
-    int res;
- 
+    int res = freenect_start();
+    if (res != 0) return res;
+
     // Freenect initialization stuff follows
 
     if (freenect_init(&f_ctx, NULL) < 0) {
@@ -195,9 +100,11 @@ int main(int argc, char **argv)
 
     while (!die) {
  
-        Mat rgb = rgbMat.clone(), depthf;
+        Mat rgb = rgbMat.clone(), depthfx, depthf, depthfy;
         depthMat.convertTo(depthf, CV_8UC1, 255.0/2048.0);
-
+        depthMat.convertTo(depthfy, CV_8UC1, 255.0/2048.0);
+        /*Sobel(depthfx, dx, CV_8UC1, 1, 0, 3);
+        Sobel(depthfy, dy, CV_8UC1, 0, 1, 3);*/
         int histSize[] = {256};
         float hranges[] = { 0, 256.0 };
         const float* ranges[] = { hranges };
@@ -206,7 +113,7 @@ int main(int argc, char **argv)
 
         // Calculate depth histogram in order to make assumptions regarding
         // background clip depth.
-        calcHist( &depthf, 1, channels, Mat(), // do not use mask
+        calcHist( &depthfx, 1, channels, Mat(), // do not use mask
                  hist, 1, histSize, ranges,
                  true, // the histogram is uniform
                  false );

@@ -15,3 +15,6 @@ spectrum: spectrum.cpp
 
 nearest: nearest.cpp 
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+
+near_color: near_color.cpp 
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<

@@ -48,7 +48,8 @@ void rgb_cb(freenect_device *dev, void*rgb, uint32_t timestamp)
 {
     pthread_mutex_lock(&buf_mutex);
     got_frames++;
-    //copy to ocv_buf..
+
+//copy to ocv_buf..
     memcpy(rgbMat.data, rgb, FREENECT_VIDEO_RGB_SIZE);
  
     pthread_cond_signal(&frame_cond);

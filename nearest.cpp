@@ -96,32 +96,6 @@ void *libao_threadfunc(void* arg) {
     return NULL;
 }
 
-int h1 = 22, h2 = 100, h3 = 100;
-
-Point findHand(Mat depth, Point nearPos, short nearDepth) {
-    int width = depth.size().width, height = depth.size().height;
-    Mat data(depth.size(), CV_32F);
-    // Adjust depth map accordingly for hand location
-    float large = (float)0xFFFFFF;
-    for(int x = 0; x < width; x++) {
-        for(int y = 0; y < height; y++) {
-            short val = depth.at<short>(y, x);
-            int dd = val - nearDepth;
-//            printf("%i\n", dd);
-            if (x == nearPos.x || y == nearPos.y) continue;
-            float dx = x - nearPos.x, dy = y - nearPos.y;
-            float dist = (float) h2 / sqrt(dx * dx + dy * dy);
-            //data.at<float>(y, x) = dd > 0 ? large : (float)(dd + dx * dx + dy * dy);
-            data.at<float>(y, x) = dd > 0 ? 0 : (float)(dd * dd) * dist;
-        }
-    }
-    Point result;
-    minMaxLoc(data, NULL, NULL, NULL, &result);
-    normalize(data, data, 255);
-    imshow("depth", data);
-    return result;
-}
-
 int main(int argc, char **argv)
 {
     int res;
@@ -201,75 +175,24 @@ int main(int argc, char **argv)
     int val = 3;
 
     while (!die) {
- 
-        cvCreateTrackbar("h1", "depth", &h1, 100, NULL);
-        cvCreateTrackbar("h2", "depth", &h2, 1000, NULL);
-        cvCreateTrackbar("h3", "depth", &h3, 1000, NULL);
-        cvCreateTrackbar("val", "dx", &val, 1000, NULL);
+        cvCreateTrackbar("val", "dx", &val, 10, NULL);
 
-        Mat depthf = depthMat.clone();
-        Mat depth2f = depthMat.clone();
-
-        int width = depthf.size().width, height = depthf.size().height;
-        for(int y = 0; y < height; y++) depthf.row(y) += y * 100; 
-
-
-        // Find & mark the minimal depth in adjusted map (rudimentary head-finder)
-        Point headLoc;
-        minMaxLoc(depthf, NULL, NULL, &headLoc, NULL);
-        short headDepth = depthf.at<short>(headLoc.y, headLoc.x);
-
-        Point hand1Guess(headLoc.x - 150, (headLoc.y + height) / 2);
-        Point hand2Guess(headLoc.x + 150, (headLoc.y + height) / 2);
-
-        Point hand1Pos = findHand(depth2f, hand1Guess, headDepth);
-        Point hand2Pos = findHand(depth2f, hand2Guess, headDepth);
-//        imshow("depth2f", depth2f);
-//        imshow("depth3f", depth3f);
-
-        circle(rgbMat, headLoc, 50, Scalar(255, 0, 0));
-        circle(rgbMat, hand1Pos, 50, Scalar(0, 255, 0));
-        circle(rgbMat, hand2Pos, 50, Scalar(0, 0, 255));
-//        imshow("depth", depthf);
-
-/*
-        int delta = 150;
-        int fromX = max(0, minLoc.x - delta),
-            toX = min(depthf.size().width, minLoc.x + delta);
-        int fromY = max(0, minLoc.y - delta),
-            toY = min(depthf.size().height, minLoc.y + delta);
-
-        for(int x = fromX; x < toX; x++) {
-            for(int y = fromY; y < toY; y++) {
-                short val = depthf.at<short>(y, x);
-                depthf.at<short>(y,x) = val == 0 || val > 0xfff0 ? 0xfff0 
-                    : val * 2;
-            }
-        }
-        
-
-        double minVal2, maxVal2;
-        Point minLoc2, maxLoc2;
-        minMaxLoc(depthf, &minVal2, &maxVal2, &minLoc2, &maxLoc2);
-        */
-
-        //circle(rgbMat, minLoc2, 50, Scalar(255, 255, 0));
-//        imshow("depth", depthf);
-//        imshow("rgb", rgbMat);
+        Mat depthf; //= depthMat.clone();
+        depthMat.convertTo(depthf, CV_8UC1, 255.0/2048.0);
 
         if (val == 1 || val == 3 || val == 5 || val == 7) {
-        Mat dx, dy, gt;
-        Sobel(depthf, dx, CV_8UC1, 1, 0, val);
-        compare(dx, 20, gt, CMP_GT);
-        dx.setTo(0, gt);
-        Sobel(depthf, dy, CV_8UC1, 0, 1, val);
-        compare(dy, 20, gt, CMP_GT);
-        dy.setTo(0, gt);
-        dx *= 10;
-        dy *= 10;
+            Mat dx, dy, gt;
+            Sobel(depthf, dx, CV_8UC1, 1, 0, val);
+            compare(dx, 20, gt, CMP_GT);
+            dx.setTo(0, gt);
+            Sobel(depthf, dy, CV_8UC1, 0, 1, val);
+            compare(dy, 20, gt, CMP_GT);
+            dy.setTo(0, gt);
+            dx *= 10;
+            dy *= 10;
 
-        imshow("dx", dx);
-        imshow("dy", dy);
+            imshow("dx", dx);
+            imshow("dy", dy);
         }
 
         char k = cvWaitKey(5);

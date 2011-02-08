@@ -1,3 +1,6 @@
+#ifndef GLOBAL_AUDIO_H
+#define GLOBAL_AUDIO_H
+
 #include <ao/ao.h>
 #include "common.h"
 
@@ -67,3 +70,5 @@ void libao_finish() {
     ao_close(ao_dev);
     ao_shutdown();
 }
+
+#endif

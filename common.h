@@ -1,3 +1,6 @@
+#ifndef KINECT_COMMON_H
+#define KINECT_COMMON_H
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -48,12 +51,10 @@ void rgb_cb(freenect_device *dev, void*rgb, uint32_t timestamp)
 
     //copy to ocv_buf..
     memcpy(rgbMat.data, rgb, FREENECT_VIDEO_RGB_SIZE);
-    cvtColor(rgbMat, rgb, CV_RGB2BGR);
  
     pthread_cond_signal(&frame_cond);
     pthread_mutex_unlock(&buf_mutex);
 }
-
 
 // Thread to loop and query the kinect data as fast as possible.
 void *freenect_threadfunc(void* arg) {
@@ -109,3 +110,42 @@ int freenect_start() {
 void freenect_finish() {
     pthread_join(fnkt_thread, NULL);
 }
+
+void display(char* name, Mat matrix) {
+    Mat out;
+    if (matrix.type() == CV_16UC1) {
+        int width = matrix.size().width,
+            height = matrix.size().height;
+        vector<Mat> result;
+        for (int i = 0; i < 3; i++) 
+            result.push_back(Mat(height, width, CV_8UC1));
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                short val = matrix.at<short>(y, x);
+		uchar lb = val % 256, ub = val / 256;
+                uchar r, g, b;
+		switch (ub) {
+                    case 0: r = 255;    g = 255-lb; b = 255-lb; break;
+                    case 1: r = 255;    g = lb;     b = 0;      break;
+                    case 2: r = 255-lb; g = 255;    b = 0;      break;
+                    case 3: r = 0;      g = 255;    b = lb;     break;
+                    case 4: r = 0;      g = 255-lb; b = 255;    break;
+                    case 5: r = 0;      g = 0;      b = 255-lb; break;
+                    default:r = 0;      g = 0;      b = 0;      break;
+                }
+                result[2].at<uchar>(y, x) = r;
+                result[1].at<uchar>(y, x) = g;
+                result[0].at<uchar>(y, x) = b;
+            }
+        }
+        merge(result, out);
+    } else if (matrix.type() == CV_8UC3) {
+        // assume RGB.
+        cvtColor(matrix, out, CV_RGB2BGR);
+    } else {
+        out = matrix;
+    }
+    imshow(name, out);
+}
+
+#endif

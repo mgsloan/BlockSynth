@@ -34,16 +34,24 @@ int main(int argc, char **argv)
 
         for (int x = 0; x < cwidth; x++) {
             for (int y = 0; y < cheight; y++) {
-                uchar hue = planes[0].at<uchar>(y, x);
+                uchar hue = planes[0].at<uchar>(y, x) % 180;
                 uchar sat = planes[1].at<uchar>(y, x);
                 uchar val = planes[2].at<uchar>(y, x);
                 result[0].at<char>(y, x) = result[1].at<char>(y, x) = 
                 result[2].at<char>(y, x) = 0;
                 if (val > lf && sat > sf) {
-                    if (hue < 10 || hue > 250) result[0].at<char>(y, x) = 255;
+                    if (hue < 10 || hue > 170)
+                        result[0].at<char>(y, x) = 255;
+                    else if (hue > 30 && hue < 40)
+                        result[1].at<char>(y, x) = 255;
+                    else if (hue > 10 && hue < 25)
+                        result[2].at<char>(y, x) = 255;
+
+/*
                     if(hf > ht ? hue > hf || hue < ht
                                : hue > hf && hue < ht)
-                        result[1].at<char>(y, x) = 255;
+                        result[0].at<char>(y, x) = 255;
+ */
                 }
             }
         }

@@ -16,13 +16,13 @@ void extractSpectrum(Mat img, Mat spect, // depth input, spectrum output
         unsigned val = img.at<unsigned>(y, x);
         if (val > td || val < fd) continue;
         val = max(fd, val);
-        float amp = (val - fd) * aratio + fa;
+        float amp = (td - val) * aratio + fa;
 
         // calculate frequency / increment appropriate index in spectrum.
         float freq = (y - fy) * fratio;
         freq = logScale ? exp(freq + log(ff))
                         : freq + ff;      
-        printf("%f\n", freq);
+        //printf("%f\n", freq);
         spect.at<float>(0, (int)freq) += amp;
     }
 }
@@ -34,7 +34,7 @@ void drawSpectrum(Mat img, Mat spect, int x, int fy, int ty) {
     int size = spect.size().width;
     float ratio = (float)(ty - fy) / size;
     for (int i = 0; i < size; i++) {
-       float a = spect.at<float>(0,i) * fscale / 100;
+       float a = spect.at<float>(0,i); //* fscale / 100;
        int y = fy + (int)((float)i * ratio);
        line(img, Point(x, y), Point(x + a, y), Scalar(255,0,0));
     }
@@ -49,6 +49,9 @@ int main(int argc, char **argv)
 
 
     Mat spectrum(1, ssize, CV_32F);
+    for (int i = 0; i < ssize; i++) spectrum.at<float>(i) = 0;
+    Mat spectrum2(1, ssize, CV_32F);
+    for (int i = 0; i < ssize; i++) spectrum2.at<float>(i) = 0;
     while (!die) {
         cvCreateTrackbar("dsize", "rgb", &dsize, 7000, NULL);
         cvCreateTrackbar("decay", "rgb", &decay, 100, NULL);
@@ -91,13 +94,23 @@ int main(int argc, char **argv)
             depthf.at<char>(y, xpos) = 0;
 
         extractSpectrum(depth, spectrum,
-                xpos, 30, 330,        // line
-                1, ssize,             // frequency
-                24379763, 60000000,   // distance
-                0, 250,               // amplitude
+                150, 1, 479,        // line
+                1, ssize,            // frequency
+                24379763, 60000000,  // distance
+                0, 50,              // amplitude
                 true);
 
-        drawSpectrum(rgb, spectrum, xpos, 30, 330);
+        drawSpectrum(rgb, spectrum, xpos + 100, 1, 479);
+
+        extractSpectrum(depth, spectrum2,
+                150, 1, 479,        // line
+                1, ssize,            // frequency
+                24379763, 60000000,  // distance
+                0, 50,              // amplitude
+                true);
+
+        drawSpectrum(rgb, spectrum2, xpos + 100, 1, 479);
+
 
         Mat result;
         dft(spectrum, result, DFT_INVERSE);
@@ -106,15 +119,16 @@ int main(int argc, char **argv)
         float prev = 0;
         for (int i = 0; i < width; i++) {
             float val = result.at<float>(0, i + clip);
-            line(rgbMat, Point(i-1, prev + 100), Point(i, val + 100), Scalar(0,255,0));
-            sound.at<short>(0,i) = (short)(val + 16000);
-            prev = val;
+            line(rgb, Point(i-1, prev + 100), Point(i, val * .01 + 100), Scalar(0,255,0));
+            sound.at<short>(0,i) = (short)(val + 16000) * fscale / 100;
+            prev = val * 0.01;
         }
 
         display("rgb", rgb);
         display("depth", depth);
 
         spectrum *= (float)(decay / 100.0);
+        spectrum2 *= (float)(decay / 100.0);
 
         char k = cvWaitKey(5);
         if( k == 27 ) break;

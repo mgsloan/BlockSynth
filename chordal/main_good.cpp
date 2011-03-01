@@ -80,6 +80,7 @@ int main() {
   Mat spectrum(1, ssize, CV_32F);
   Mat prev_result(1, ssize, CV_32F);
   Mat prev_slice(480, 1, CV_32F);
+  //for (int i = 0; i < ssize; i++) spectrum.at<float>(0, i) = 0;
   for (int i = 0; i < 480; i++) prev_slice.at<float>(i, 0) = 0;
 
   // Current image. An RGBDImage stores rgb and depth data.
@@ -149,6 +150,8 @@ int main() {
 
     drawSpectrum(dac, spectrum, 150, 1, 479);
 
+    //for (int i = ssize / 2; i < ssize; i++) spectrum.at<float>(0, i) = 0;
+
     Mat result;
     dft(spectrum, result, DFT_INVERSE);
 
@@ -157,8 +160,8 @@ int main() {
         float coef = (float)i / (sound_width - 1) / 2;
         float prev_val = prev_result.at<float>(0, i + sound_width);
         float cur_val  = result.at<float>(0, i);
-        prev_val *= 0.46 - 0.46 * cos (3.14159 * (coef - 0.5));
-        cur_val  *= 0.46 - 0.46 * cos (3.14159 * coef);
+        prev_val *= 0.52 - 0.46 * cos (3.14159 * (coef - 0.5));
+        cur_val  *= 0.52 - 0.46 * cos (3.14159 * coef);
         float val = cur_val + prev_val;
         int prev_xpos = (float)(scale / 100.0) * (i - 1);
         int xpos = (float)(scale / 100.0) * i;
@@ -167,6 +170,7 @@ int main() {
         line(dac, Point(prev_xpos, prev / 2 + 101), 
                   Point(xpos,   val / 2 + 101), Scalar(0,0,0));
         sound.at<short>(0,i) = (short)(val * 10 + 16000);
+        printf("%ih ", sound.at<short>(0,i));
         prev = val;
     }
     spectrum *= 0.9;

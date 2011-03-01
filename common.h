@@ -148,4 +148,42 @@ void display(char* name, Mat matrix) {
     imshow(name, out);
 }
 
+void calculateLUT(int contrast, int brightness) {
+    uchar lut[256];
+    CvMat* lut_mat;
+
+    /* code from blob_example associated with Blob Analysis Package
+     *
+     *
+     * The algorithm is by Werner D. Streidt
+     * (http://visca.com/ffactory/archives/5-99/msg00021.html)
+     */
+    if( contrast > 0 ) {
+        double delta = 127.*contrast/100;
+        double a = 255./(255. - delta*2);
+        double b = a*(brightness - delta);
+        for(int i = 0; i < 256; i++ )
+        {
+            int v = cvRound(a*i + b);
+            if( v < 0 ) v = 0;
+            if( v > 255 ) v = 255;
+            lut[i] = (uchar)v;
+        }
+    }
+    else {
+        double delta = -128.*contrast/100;
+        double a = (256.-delta*2)/255.;
+        double b = a*brightness + delta;
+        for(int i = 0; i < 256; i++ ) {
+            int v = cvRound(a*i + b);
+            if( v < 0 )
+                v = 0;
+            if( v > 255 )
+                v = 255;
+            lut[i] = (uchar)v;
+        }
+    }
+}
+
+
 #endif

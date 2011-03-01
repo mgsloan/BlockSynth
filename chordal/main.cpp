@@ -8,6 +8,12 @@
 using namespace ntk;
 using namespace cv;
 
+float logeto2 = 1 / log (2);
+
+static const double pi = 3.14159265358979323846;
+
+inline static double square(int a) { return a * a; }
+
 void extractSpectrum(Mat img, Mat spect, // depth input, spectrum output
   int x, int fy, int ty,    // line in camera space, maps to
   int ff, int tf,           // interval in frequency.
@@ -15,10 +21,11 @@ void extractSpectrum(Mat img, Mat spect, // depth input, spectrum output
   float fa, float ta,       // interval in amplitude.
   bool logScale) {
 
-    float deltaF = logScale ? log ((float) tf / ff)
+    float deltaF = logScale ? log ((float) tf / ff) * logeto2
                             : tf - ff;
     float fratio = deltaF / (ty - fy),
           aratio = (ta - fa) / (td - fd);
+    float logfrom = log(ff) * logeto2;
     bool prev = false;
     for (int y = fy; y <= ty; y++) {
         // calculate amplitude of value.
@@ -31,11 +38,11 @@ void extractSpectrum(Mat img, Mat spect, // depth input, spectrum output
         //val = max(fd, val);
         float amp = (td - val) * aratio + fa;
 
-        // calculate frequency / increment appropriate index in spectrum.
         float freq = (y - fy) * fratio;
-        freq = logScale ? exp(freq + log(ff))
-                        : freq + ff;      
-        //printf("%f\n", freq);
+        freq *= logScale ? pow(2, freq + logfrom)
+                         : freq + ff;
+
+        // calculate frequency / increment appropriate index in spectrum.
         spect.at<float>(0, (int)freq) += amp;
     }
 }
@@ -78,6 +85,16 @@ Mat getIntervals(Mat slice, float ratio) {
     return result;
 }
 
+int scaleValueLog(float y, float fy, float ty, float ff, float octaves) {
+    float deltaF = log (octaves * 2) * logeto2;
+    float freq = (y - fy) * (deltaF / (ty - fy));
+    return pow(2, freq + log(ff) * logeto2);
+}
+
+int scaleValueLin(float y, float fy, float ty, float ff, float tf) {
+    return (y - fy) * ((tf - ff) / (ty - fy)) + ff;
+}
+
 int main() {
   int res = libao_start();
   if (res) return res;
@@ -96,7 +113,7 @@ int main() {
   // OpenCV windows.
   namedWindow("dac");
 
-  int scale = 10;
+  int scale = 10, fromIx = 10, toIx = 1000;
   int sound_width = sound.size().width;
   int ssize = sound_width * 2; 
 
@@ -106,11 +123,15 @@ int main() {
   for (int i = 0; i < 480; i++) prev_slice.at<float>(i, 0) = 0;
   for (int i = 0; i < ssize; i++) spectrum.at<float>(0, i) = 0;
 
+  Mat old_frame, flow;
+
   // Current image. An RGBDImage stores rgb and depth data.
   RGBDImage current_frame;
   while (true)
   {
     cvCreateTrackbar("scale", "dac", &scale, 100, NULL);
+    cvCreateTrackbar("from", "dac", &fromIx, ssize, NULL);
+//    cvCreateTrackbar("to", "dac", &toIx, ssize, NULL);
 
     grabber.waitForNextFrame();
     grabber.copyImageTo(current_frame);
@@ -138,24 +159,58 @@ int main() {
         float value = ivls.at<float>(i, 0),
               from  = ivls.at<float>(i, 1),
               to    = ivls.at<float>(i, 2);
-        if (value < 1 && to - from > 4) {
-            float mean = (+ ivls.at<float>(i, 2)) / 2;
+        if (value < 1 && to - from > 2) {
+            float mean = (from + to) / 2;
 //            spectrum.at<float>(0, (int)mean) = 100;
             pos.push_back(mean); 
-            printf("%i ", (int)mean);
+            //printf("%i ", (int)mean);
         }
     }
-    printf("\n");
 
+    float height = depth.size().height, octaves = 2;
+    float spacing = height / (octaves * 12.0);
+    for (int i = 0; i < octaves * 12; i++) {
+        line(dac, Point(150, i * spacing), Point(155, i * spacing), Scalar(0,0,0));
+    }
+    for (int i = 0; i < pos.size(); i++) {
+        float val = floor(pos[i] / spacing);
+        float ffreq = scaleValueLog(val, 0, 24, fromIx, octaves);
+        spectrum.at<float>(0, ffreq) = 100;
+    }
+
+/*
+    vector<Mat> rgbplanes;
+    split(current_frame.rgb(), rgbplanes);
+    Mat frame = rgbplanes[1];
+    if (!old_frame.empty()) {
+        int flags = 0; //flow.empty() ? 0 : OPTFLOW_USE_INITIAL_FLOW;
+        calcOpticalFlowFarneback(old_frame, frame, flow, 0.5, 3, 3, 3, 5, 1.1, flags);
+        vector<Mat> planes;
+        split(flow, planes);
+        planes[0] += 20;
+        planes[1] += 20;
+        planes[0] /= 40;
+        planes[1] /= 40;
+        imshow("flowx", planes[0]);
+        imshow("flowy", planes[1]);
+    }
+    frame.copyTo(old_frame);
+    */
+		
+
+/*
     if (pos.size() >= 1) {
-        float ffreq = exp(pos[0] / 100 + 1) * 10;
-        for (int j = 1; j < 3; j++) {
+        float height = depth.size().height, octaves = 2;
+        float val = floor(pos[0] * (octaves * 12.0) / height);
+        float ffreq = scaleValueLog(val, 0, 24, fromIx, octaves);
+        printf("%f \n", ffreq);
+        for (int j = 1; j < 2; j++) {
             int fund = ffreq * j;
             if (fund > ssize) break;
             //if (pos.size() == 1)
             spectrum.at<float>(0, fund) = 100 / j;
             if (pos.size() >= 2) {
-                int fifth = ffreq * 4.0 / 3.0 * j;
+                int fifth = ffreq * log (4.0 / 3.0) * logeto2 * j;
                 if (fifth < ssize)
                     spectrum.at<float>(0, fifth) = 100 / j;
             }
@@ -175,13 +230,12 @@ int main() {
             }
         }
     }
-
-
+    */
 
     //spectrum.at<float>(0, (int) mean) = (0.7 - value) * 300;
 
-    Sobel(depth, dy, CV_32F, 0, 1);
-    imshow("dy", dy);
+//    Sobel(depth, dy, CV_32F, 0, 1);
+//    imshow("dy", dy);
 
     line(dac, Point(150, 0), Point(150, 480), Scalar(0,0,0));
 
@@ -194,6 +248,7 @@ int main() {
 
     Mat result;
     dft(spectrum, result, DFT_INVERSE);
+    for (int i = ssize / 2; i < ssize; i++) spectrum.at<float>(0, i) = 0;
 
     float prev = 0;
     for (int i = 0; i < sound_width; i++) {

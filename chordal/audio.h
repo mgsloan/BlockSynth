@@ -14,6 +14,7 @@ char *ao_buffer;
 int ao_buf_size;
 int ao_sample;
 int ao_cnt;
+float ao_length;
 bool die = false;
 
 Mat sound;
@@ -57,6 +58,7 @@ int libao_start() {
     ao_cnt = ao_format.rate / 16;
     ao_buf_size = ao_format.bits/8 * ao_format.channels * ao_cnt;
     ao_buffer = (char*)calloc(ao_buf_size, sizeof(char));
+    // ao_length = 
 
     sound = Mat(1, ao_cnt, CV_16UC1);
 
@@ -76,6 +78,11 @@ void libao_finish() {
     pthread_join(ao_thread, NULL);
     ao_close(ao_dev);
     ao_shutdown();
+}
+
+int positionFromFrequency(float freq) {
+    // 2 * pi * n / (N * delta)
+//    float frequency = 2 * 3.14159 * freq / (ao_cnt * );
 }
 
 #endif

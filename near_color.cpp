@@ -5,7 +5,7 @@ int main(int argc, char **argv)
     int res = freenect_start();
     if (res != 0) return res;
 
-    int hf = 250, ht = 10, lf = 128, sf = 128;
+    int hf = 10, ht = 30, lf = 128, sf = 128;
 
     while (!die) {
         cvCreateTrackbar("Hue_From", "h", &hf, 255, NULL);
@@ -18,10 +18,6 @@ int main(int argc, char **argv)
         cvtColor(rgb, hsv, CV_RGB2HSV);
 
         int cwidth = hsv.size().width, cheight = hsv.size().height;
-
-        Mat resultR(cheight, cwidth, CV_8UC1);
-        Mat resultG(cheight, cwidth, CV_8UC1);
-        Mat resultB;
 
         vector<Mat> planes, result;
         split(hsv, planes);
@@ -44,7 +40,7 @@ int main(int argc, char **argv)
                         result[0].at<char>(y, x) = 255;
                     else if (hue > 30 && hue < 40)
                         result[1].at<char>(y, x) = 255;
-                    else if (hue > 10 && hue < 25)
+                    else if (hue > hf && hue < ht)
                         result[2].at<char>(y, x) = 255;
 
 /*

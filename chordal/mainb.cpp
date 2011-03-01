@@ -91,8 +91,6 @@ int main() {
 
   // Current image. An RGBDImage stores rgb and depth data.
   RGBDImage current_frame;
-  Mat first_frame;
-  bool got_first = false;
   while (true)
   {
     cvCreateTrackbar("scale", "dac", &scale, 100, NULL);
@@ -117,7 +115,6 @@ int main() {
         Point(10,20), 0, 0.5, Scalar(255,0,0,255));
 
     Mat depth = current_frame.depth();
-    if (!got_first) first_frame = depth;
 
 /*
     Mat slice = depth.col(150);
@@ -152,7 +149,7 @@ int main() {
     printf("%f\n", time);
     int xpos = ((int)(time * 10.0)) % 640;
 
-    extractSpectrum(first_frame, spectrum,
+    extractSpectrum(depth, spectrum,
             xpos, 1, 479,            // line
             10, ssize,              // frequency
             0.4, 2,                 // distance
@@ -161,7 +158,7 @@ int main() {
  
     // Compute color encoded depth.
     cv::Mat3b dac;
-    compute_color_encoded_depth(first_frame, dac);
+    compute_color_encoded_depth(current_frame.depth(), dac);
 
     drawSpectrum(dac, spectrum, xpos, 1, 479);
 
